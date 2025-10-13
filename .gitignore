@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Training outputs
+trained_models/
+checkpoints/
+logs/
+*.log
+
+# Feature extraction
+feature_extraction/
+processed_dataset_chunks/
+test_processed_chunks/
+
+# Data
+*.arrow
+*.json
+*.jsonl
+*.csv
+*.txt
+training_data/
+sample_training_data.arrow
+
+# Model checkpoints
+checkpoint-*/
+deberts_*/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Optuna
+optuna.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep config but not secrets
+# config.yaml  # Uncomment if you want to exclude config

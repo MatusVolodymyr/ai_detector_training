@@ -1,0 +1,168 @@
+# ==============================================================================
+# AI Detector Training Pipeline Configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Input Dataset
+# ------------------------------------------------------------------------------
+dataset:
+  source: "local"  # "local" or "huggingface"
+  path: "training_data.arrow"  # Local path or HF dataset ID
+  # path: "NeksoN/some_dataset"  # Example HF dataset
+  text_column: "text"
+  label_column: "label"
+
+# ------------------------------------------------------------------------------
+# Data Splitting
+# ------------------------------------------------------------------------------
+data_split:
+  deberta_train: 0.80    # 80% for DeBERTa training
+  deberta_val: 0.10      # 10% for DeBERTa validation
+  test: 0.10             # 10% held out for final evaluation
+  seed: 42
+  stratify: true         # Stratify by label
+
+# ------------------------------------------------------------------------------
+# Sentence Windowing
+# ------------------------------------------------------------------------------
+windowing:
+  max_sentences_per_text: 100
+  window_sizes: [1, 3, 5]
+  clean_text: true       # Remove markdown/HTML
+
+# ------------------------------------------------------------------------------
+# DeBERTa Training
+# ------------------------------------------------------------------------------
+deberta:
+  base_model: "microsoft/mdeberta-v3-base"
+  num_labels: 2
+  
+  training:
+    learning_rate: 5.0e-5
+    per_device_train_batch_size: 32
+    per_device_eval_batch_size: 32
+    num_train_epochs: 2
+    weight_decay: 0.04
+    fp16: true
+    
+  early_stopping:
+    patience: 1
+    metric: "f1"
+  
+  output:
+    save_total_limit: 1
+    eval_strategy: "epoch"
+    save_strategy: "epoch"
+    load_best_model_at_end: true
+  
+  # Model output paths (relative to trained_models/)
+  model_names:
+    s1: "deberta_s1"
+    s3: "deberta_s3"
+    s5: "deberta_s5"
+
+# ------------------------------------------------------------------------------
+# Feature Extraction (for XGBoost)
+# ------------------------------------------------------------------------------
+feature_extraction:
+  # Sampling strategy
+  sample_from_train: 80000      # Sample 80k from 400k training set
+  use_deberta_val: true          # Add 50k validation set
+  total_target: 130000           # Total ≈ 130k
+  
+  sampling_strategy: "stratified"  # "stratified" or "random"
+  
+  # Processing settings
+  chunk_size: 50000              # Process in 50k chunks
+  batch_size: 100                # Batch size for feature extraction
+  
+  # Feature types
+  enable_stylometric: true       # POS tags, lexical features
+  enable_perplexity: true        # Perplexity calculation
+  enable_predictions: true       # DeBERTa model predictions
+  
+  # Incremental processing
+  resume: true                   # Resume from existing chunks
+  output_dir: "feature_extraction"
+
+# ------------------------------------------------------------------------------
+# XGBoost Training
+# ------------------------------------------------------------------------------
+xgboost:
+  # Data split for XGBoost internal validation
+  validation_split: 0.15         # 15% of extracted features
+  
+  # Stochastic expert dropout augmentation
+  augmentation:
+    enabled: true
+    drop_rate: 0.30              # 30% of samples get expert dropped
+    neutral_value: 0.50          # Set dropped predictions to 0.5
+    bias_weights: [1, 1, 2]      # Bias towards s5
+    mode: "concat"               # "concat" or "replace"
+    seed: 123
+  
+  # Hyperparameter optimization (Optuna)
+  optuna:
+    n_trials: 30
+    direction: "maximize"        # Maximize F1
+    
+    # Search space
+    max_depth: [3, 10]
+    learning_rate: [0.01, 0.3]   # log scale
+    subsample: [0.5, 1.0]
+    colsample_bytree: [0.5, 1.0]
+    gamma: [0, 5]
+    min_child_weight: [1, 10]
+    num_boost_round: [200, 1000]
+  
+  # Training settings
+  objective: "binary:logistic"
+  eval_metric: "logloss"
+  tree_method: "hist"
+  device: "cuda"                 # Use GPU
+  early_stopping_rounds: 20
+  
+  # Output
+  output_dir: "trained_models/xgboost_meta"
+  save_feature_list: true
+
+# ------------------------------------------------------------------------------
+# Final Evaluation
+# ------------------------------------------------------------------------------
+evaluation:
+  test_set_size: 50000           # Size of held-out test set
+  compute_per_language: true     # Per-language metrics (if multilingual)
+  feature_importance_top_n: 50   # Top N features to report
+  fragility_analysis: true       # Test model robustness
+  
+# ------------------------------------------------------------------------------
+# Output & Checkpointing
+# ------------------------------------------------------------------------------
+output:
+  base_dir: "trained_models"
+  checkpoint_dir: "checkpoints"
+  logs_dir: "logs"
+  
+  save_intermediate: true        # Save intermediate datasets
+  cleanup_on_success: false      # Keep intermediate files
+  
+  report_format: "json"          # "json" or "yaml"
+  report_name: "training_report.json"
+
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+logging:
+  level: "INFO"                  # DEBUG, INFO, WARNING, ERROR
+  console: true
+  file: true
+  file_path: "logs/training.log"
+  
+# ------------------------------------------------------------------------------
+# System
+# ------------------------------------------------------------------------------
+system:
+  seed: 42
+  num_workers: 4                 # DataLoader workers
+  pin_memory: true
+  deterministic: true            # For reproducibility
