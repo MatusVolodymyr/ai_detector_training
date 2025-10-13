@@ -193,18 +193,18 @@ trained_models/
 - Create multiple context windows (1, 3, 5 sentences)
 - Split into train/val/test sets
 
-### Phase 2: DeBERTa Training (~6-12 hours)
+### Phase 2: DeBERTa Training (~8-14 hours)
 - Train 3 separate DeBERTa models
 - Each specializes in different context window size
 - Early stopping based on validation F1 score
 
-### Phase 3: Feature Extraction (~3-4 hours)
+### Phase 3: Feature Extraction (~4-6 hours)
 - Sample 80k sentences from training + 50k from validation
 - Extract stylometric features (POS, perplexity, lexical richness)
 - Get predictions from all 3 DeBERTa models
 - Process in chunks with automatic resumption
 
-### Phase 4: XGBoost Training (~2-4 hours)
+### Phase 4: XGBoost Training (~1 hours)
 - Apply stochastic expert dropout augmentation
 - Optimize hyperparameters with Optuna (30 trials)
 - Train final ensemble classifier
