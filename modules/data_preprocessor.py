@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from typing import Dict, Any, List
 from datasets import Dataset, DatasetDict
-from tqdm import tqdm
 import numpy as np
 
 # Import existing stylometric extraction module
@@ -50,38 +49,39 @@ class DataPreprocessor:
         
         print(f"\n📝 Processing {len(dataset)} texts into sentences...")
         
-        # Convert to windowed sentences
-        all_sentences = []
-        
-        for i, example in enumerate(tqdm(dataset, desc="Creating windows")):
-            text = example[text_col]
-            label = example[label_col]
+        # Convert to windowed sentences using Dataset.map to avoid large in-memory buffers
+        def _create_sentence_examples(batch: Dict[str, List[Any]], indices: List[int]) -> Dict[str, List[Any]]:
+            text = batch[text_col][0]
+            label = batch[label_col][0]
+            doc_index = indices[0]
             
-            # Create windows for this text
             windows_dict = create_windows(
                 text,
                 max_sentences=self.windowing_config['max_sentences_per_text']
             )
             
-            # Each sentence becomes a separate example
             num_sentences = len(windows_dict['window_1'])
             
-            for sent_idx in range(num_sentences):
-                sentence_example = {
-                    'window_1': windows_dict['window_1'][sent_idx],
-                    'window_3': windows_dict['window_3'][sent_idx],
-                    'window_5': windows_dict['window_5'][sent_idx],
-                    'language': windows_dict['language'][sent_idx],
-                    'label': label,
-                    'doc_id': f"doc_{i}",
-                    'sentence_index': sent_idx,
-                }
-                all_sentences.append(sentence_example)
+            return {
+                'window_1': windows_dict['window_1'],
+                'window_3': windows_dict['window_3'],
+                'window_5': windows_dict['window_5'],
+                'language': windows_dict['language'],
+                'label': [label] * num_sentences,
+                'doc_id': [f"doc_{doc_index}"] * num_sentences,
+                'sentence_index': list(range(num_sentences)),
+            }
         
-        print(f"✓ Created {len(all_sentences)} sentences from {len(dataset)} texts")
+        sentence_dataset = dataset.map(
+            _create_sentence_examples,
+            with_indices=True,
+            batched=True,
+            batch_size=1,
+            remove_columns=dataset.column_names,
+            desc="Creating windows"
+        )
         
-        # Create dataset from sentences
-        sentence_dataset = Dataset.from_list(all_sentences)
+        print(f"✓ Created {len(sentence_dataset)} sentences from {len(dataset)} texts")
         
         # Split into train/val/test
         splits = self._split_dataset(sentence_dataset)

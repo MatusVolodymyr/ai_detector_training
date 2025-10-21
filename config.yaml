@@ -7,7 +7,7 @@
 # ------------------------------------------------------------------------------
 dataset:
   source: "local"  # "local" or "huggingface"
-  path: "training_data.arrow"  # Local path or HF dataset ID
+  path: "cleaned_ai_human.arrow"  # Local path or HF dataset ID
   # path: "NeksoN/some_dataset"  # Example HF dataset
   text_column: "text"
   label_column: "label"
@@ -41,7 +41,7 @@ deberta:
     learning_rate: 5.0e-5
     per_device_train_batch_size: 32
     per_device_eval_batch_size: 32
-    num_train_epochs: 2
+    num_train_epochs: 1
     weight_decay: 0.04
     fp16: true
     
@@ -66,9 +66,9 @@ deberta:
 # ------------------------------------------------------------------------------
 feature_extraction:
   # Sampling strategy
-  sample_from_train: 80000      # Sample 80k from 400k training set
+  sample_from_train: 10000      # Sample 80k from 400k training set
   use_deberta_val: true          # Add 50k validation set
-  total_target: 130000           # Total ≈ 130k
+  total_target: 20000           # Total ≈ 130k
   
   sampling_strategy: "stratified"  # "stratified" or "random"
   
